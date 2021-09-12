@@ -593,3 +593,151 @@ function jumpLimitData() {
     return data;
 }
 module.exports.jumpLimitData = jumpLimitData;
+
+function iaLuminosityData() {
+    let data = {};
+    data['B0'] = 560000;
+    data['B5'] = 204000;
+    data['A0'] = 107000;
+    data['A5'] = 81000;
+    data['F0'] = 61000;
+    data['F5'] = 51000;
+    data['G0'] = 67000;
+    data['G5'] = 89000;
+    data['K0'] = 97000;
+    data['K5'] = 107000;
+    data['M0'] = 117000;
+    data['M5'] = 129000;
+    return data;
+}
+
+function ibLuminosityData() {
+    let data = {};
+    data['B0'] = 270000;
+    data['B5'] = 46700;
+    data['A0'] = 15000;
+    data['A5'] = 11700;
+    data['F0'] = 7400;
+    data['F5'] = 5100;
+    data['G0'] = 6100;
+    data['G5'] = 8100;
+    data['K0'] = 11700;
+    data['K5'] = 20400;
+    data['M0'] = 46000;
+    data['M5'] = 89000; 
+    return data;
+}
+
+function iiLuminosityData() {
+    let data = {};
+    data['B0'] = 170000;
+    data['B5'] = 18600;
+    data['A0'] = 2200;
+    data['A5'] = 850;
+    data['F0'] = 600;
+    data['F5'] = 510;
+    data['G0'] = 560;
+    data['G5'] = 740;
+    data['K0'] = 890;
+    data['K5'] = 2450;
+    data['M0'] = 4600;
+    data['M5'] = 14900; 
+    return data;
+}
+
+function iiiLuminosityData() {
+    let data = {};
+    data['B0'] = 107000;
+    data['B5'] = 6700;
+    data['A0'] = 280;
+    data['A5'] = 90;
+    data['F0'] = 53;
+    data['F5'] = 43;
+    data['G0'] = 50;
+    data['G5'] = 75;
+    data['K0'] = 95;
+    data['K5'] = 320;
+    data['M0'] = 470;
+    data['M5'] = 2280;
+    return data;
+}
+
+function ivLuminosityData() {
+    let data = {};
+    data['B0'] = 81000;
+    data['B5'] = 2000;
+    data['A0'] = 156;
+    data['A5'] = 37;
+    data['F0'] = 19;
+    data['F5'] = 12;
+    data['G0'] = 6.5;
+    data['G5'] = 4.9;
+    data['K0'] = 4.67;
+    data['K5'] = 'illegal';
+    data['M0'] = 'illegal';
+    data['M5'] = 'illegal'; 
+    return data;
+}
+
+function vLuminosityData() {
+    let data = {};
+    data['B0'] = 56000;
+    data['B5'] = 1400;
+    data['A0'] = 90;
+    data['A5'] = 16;
+    data['F0'] = 8.1;
+    data['F5'] = 3.5;
+    data['G0'] = 1.21;
+    data['G5'] = 0.67;
+    data['K0'] = 0.42;
+    data['K5'] = 0.08;
+    data['M0'] = 0.04;
+    data['M5'] = 0.007; 
+    return data;
+}
+
+function viLuminosityData() {
+    let data = {};
+    data['B0'] = 'illegal';
+    data['B5'] = 'illegal';
+    data['A0'] = 'illegal';
+    data['A5'] = 'illegal';
+    data['F0'] = 'illegal';
+    data['F5'] = 0.977;
+    data['G0'] = 0.322;
+    data['G5'] = 0.186;
+    data['K0'] = 0.117;
+    data['K5'] = 0.025;
+    data['M0'] = 0.011;
+    data['M5'] = 0.002;
+    return data;
+}
+
+function dLuminosityData() {
+    let data = {};
+    data['B'] = 0;
+    data['A'] = 0;
+    data['F'] = 0;
+    data['G'] = 0;
+    data['K'] = 0;
+    data['M'] = 0;
+    data['L'] = 0;
+    data['T'] = 0;
+    data['Y'] = 0;
+    return data;
+}
+
+function luminosityData() {
+    let data = {};
+    data['Ia'] = iaLuminosityData();
+    data['Ib'] = ibLuminosityData();
+    data['II'] = iiLuminosityData();
+    data['III'] = iiiLuminosityData();
+    data['IV'] = ivLuminosityData();
+    data['V'] = vLuminosityData();
+    data['VI'] = viLuminosityData();
+    data['D'] = dLuminosityData();
+    return data;
+}
+module.exports.luminosityData = luminosityData;
+

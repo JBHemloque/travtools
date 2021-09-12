@@ -2,13 +2,14 @@
 
 const args = require('minimist')(process.argv.slice(2), {
     string: ['upp', 'name'],
-    boolean: ['help', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld'],
+    boolean: ['help', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld', 'reducing'],
     alias: {
         d: 'deathWorld',
         h: 'help',
         v: 'verbose',
         g: 'forceGG',
         n: 'name',
+        r: 'reducing',
         u: 'upp'
     }
 });
@@ -22,6 +23,7 @@ function showHelp() {
     console.log('-h          display this help');
     console.log('-g          force gas giants in this system');
     console.log('-n [name]   name the system');
+    console.log('-r              majority of breathable worlds should have reducing (A) atmospheres');
     console.log('-u [UPP]    upp used for this system (will generate one if not supplied)');
     console.log('-v          verbose mode');
     process.exit(0);
@@ -51,7 +53,7 @@ if (args['verbose']) {
 }
 
 let name = 'Unnamed';
-let upp = sysgenlib.generateMainWorld();
+let upp = sysgenlib.generateMainWorld(0, args['reducing']);
 if (args['upp']) {
     let item = parseUPP(args['upp']);
     upp = {...item, ...{ remarks: 'Main World' }};
@@ -68,6 +70,6 @@ if (args['deathWorld']) {
 }
 
 // console.log('generated a upp: ' + JSON.stringify(upp));
-let system = sysgenlib.generateSystem(upp, args['forceGG'], args['forceNoGG']);
+let system = sysgenlib.generateSystem(upp, args['forceGG'], args['forceNoGG'], false, args['reducing']);
 
 sysgenlib.printSystem(name, system, console);

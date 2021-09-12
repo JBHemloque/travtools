@@ -6,6 +6,8 @@ var constants = require('./constants.js');
 
 var dice = require('./dice.js');
 
+const REDUCING_FACTOR = 10;
+
 const MAX_TECH = 12;
 
 const STAR = 'Star';
@@ -39,6 +41,7 @@ const surfaceData = constants.surfaceData();
 const innerData = constants.innerData();
 const habitableData = constants.habitableData();
 const jumpLimitData = constants.jumpLimitData();
+const luminosityData = constants.luminosityData();
 
 const orbitDistance = ['0.2 AU', '0.4 AU', '0.7 AU', '1.0 AU', '1.6 AU', '2.8 AU', '5.2 AU',
      '10 AU', '19.6 AU', '38.8 AU', '77.2 AU', '154 AU', '307.4 AU', '614.8 AU', '1229.2 AU', '2458 AU'];
@@ -66,6 +69,8 @@ const habitableHydrographics = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const semiHabitableAtmosphere = [2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15];
 const semiHabitableHydrographics = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+const maxAuForOrbit = [0.3, 0.55, 0.85, 1.3, 2.2, 4, 7.4, 14.8, 29.2, 58, 115.6, 230.8, 461, 922, 1844, 3687, 7373, 14747, 29491, 59000];
 
 function rollDie(sides) {
     return dice.rollDie(sides);
@@ -172,6 +177,15 @@ function uppStruct(sport, siz, atm, hyd, pop, gov, law, techLevel, tags, remarks
         tags: tags,
         remarks
     };
+}
+
+function applyReducing(atm) {
+    if (semiHabitableAtmosphere.includes(atm)) {
+        if (rollDie(REDUCING_FACTOR) > 1) {
+            atm = 10;
+        }
+    }
+    return atm;
 }
 
 function generateAtmosphere(size, inner, outer) {
@@ -452,13 +466,16 @@ function populateWorld(upp, pop, sport) {
 }
 module.exports.populateWorld = populateWorld;
 
-function generateMainWorld(pop) {
+function generateMainWorld(pop, reducing) {
     let sport = starport();
     if (pop == 0) {
         sport = 'X';
     }
     let siz = d6d6(-2);
     let atm = generateAtmosphere(siz, false, false);
+    if (reducing) {
+        atm = applyReducing(atm);
+    }
     let hyd = generateHydrographics(siz, atm, false, false);
     let upp = uppStruct(sport, siz, atm, hyd, 0, 0, 0, 0, [], MAIN_WORLD);
     upp = populateWorld(upp, pop, sport);
@@ -467,7 +484,7 @@ function generateMainWorld(pop) {
 }
 module.exports.generateMainWorld = generateMainWorld;
 
-function generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP) {
+function generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP, reducing) {
     let sizDM = -2;
     switch (orbit) {
         case 0:
@@ -484,17 +501,20 @@ function generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP) {
         sizDM -= 2;
     }
     let siz = d6d6(sizDM);
-    let atm = generateAtmosphere(siz, inner, outer);
+    let atm = generateAtmosphere(siz, inner, outer, reducing);
     let hyd = generateHydrographics(siz, atm, inner, outer);
     if (siz <= 0) {
         siz = 'S';
+    }
+    if (reducing) {
+        atm = applyReducing(atm);
     }
     let upp = uppStruct('Y', siz, atm, hyd, 0, 0, 0, 0, []);
     upp = populateSecondaryWorld(mainworldUPP, upp, inner, outer);
     return upp;
 }
 
-function generateSatelliteWorld(primary, inner, outer, mainworldUPP) {
+function generateSatelliteWorld(primary, inner, outer, mainworldUPP, reducing) {
     let siz = 0;
     // Size is allowed to be negative...
     if (primary == 'Large Gas Giant') {
@@ -515,6 +535,9 @@ function generateSatelliteWorld(primary, inner, outer, mainworldUPP) {
     } else if (siz < 0) {
         siz = 'S';
     }
+    if (reducing) {
+        atm = applyReducing(atm);
+    }
     let upp = uppStruct('Y', siz, atm, hyd, 0, 0, 0, 0, []);
     upp = populateSecondaryWorld(mainworldUPP, upp, inner, outer);
     return upp;
@@ -530,6 +553,16 @@ function numStars() {
     }
     return 2;
 }
+
+function starWithData(stellarClass, luminosity) {
+    return {
+        type: STAR,
+        stellarClass: stellarClass,
+        size: null,
+        luminosity: luminosity
+    };
+}
+module.exports.starWithData = starWithData;
 
 function star(stellarClass, size) {
     const subBrightnessData = ['0', '0', '0', '0', '5', '5', '5'];
@@ -548,11 +581,10 @@ function star(stellarClass, size) {
         // Dwarves have no size
         sc = stellarClass;
     }
-    return {
-        type: STAR,
-        stellarClass: sc,
-        size: size     
-    };
+    let luminosity = luminosityData[size][sc];
+    let star = starWithData(stellarClass + size, luminosity);
+    star.size = size;
+    return star;
 }
 
 function companionOrbit(maxOrbit, dm) {
@@ -607,6 +639,16 @@ function orbitItem(distance, item, minOrbit) {
     let newItem = {...item, ...{ distance: od }};
     return newItem;
 }
+
+function habZoneOrbitFromAu(au) {
+    for (var orbit = 0; orbit < maxAuForOrbit.length; orbit++) {
+        if (au < maxAuForOrbit[orbit]) {
+            return orbit;
+        }
+    }
+    return -1;
+}
+module.exports.habZoneOrbitFromAu = habZoneOrbitFromAu;
 
 function placeInOrbit(system, item, orbit, minOrbit) {
     if (orbit >= 0) {
@@ -704,9 +746,8 @@ function generateCompanionStar(primaryClassRoll, primarySizeRoll, brownDwarf) {
         );
 }
 
-// Generates a system structure, given an existing UPP
-function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
-    // Generate the number of stars  
+function generateStellarSystem(upp, brownDwarf) {
+    // Generate the number of stars
     let stars = numStars();
     // Generate the star DM
     let dm = 0;
@@ -720,10 +761,10 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
             dm = 5;
         }
     }    
-    // Primary    
+    // Primary
     let primaryClassRoll = d6d6(dm);
     let stellarClass = stellarClassData[primaryClassRoll];
-    let primarySizeRoll = d6d6(dm);    
+    let primarySizeRoll = d6d6(dm);
     let size = stellarSizeData[primarySizeRoll];
     if (brownDwarf) {
         stellarClass = brownDwarfClassData[primaryClassRoll];
@@ -741,33 +782,61 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
     let minOrbit = innerData[primary.size][primary.stellarClass];
     let habZone = habitableData[primary.size][primary.stellarClass];
     // Now generate the initial system data
-    let system = {
-        stars: stars,
-        primary: primary,
-        mainworldUPP: null,      
-        maxOrbits: maxOrbits,
-        orbitsRemaining: maxOrbits
-    };
-    if (upp) {
-        system.mainWorldUPP = uppToString(upp);
-    }
-
-    system['orbits'] = createOrbits(system.maxOrbits);
+    let system = newSystem(primary, maxOrbits, surface, minOrbit, habZone);
 
     // Companion stars?
     if (stars >= 2) {
-        let orbit = companionOrbit(maxOrbits);
         let companion = generateCompanionStar(primaryClassRoll, primarySizeRoll, brownDwarf);
-        placeInOrbit(system, companion, orbit, minOrbit);
+        addCompanionStar(companion, system);
         if (stars == 3) {
             let val = companionOrbit(maxOrbits, 4);
             if (val == orbit) {
                 val = -1;
             }
             companion = generateCompanionStar(primaryClassRoll+4, primarySizeRoll+4, brownDwarf);
-            placeInOrbit(system, companion, val, minOrbit);
+            addCompanionStarToOrbit(companion, system, val);
         }
     }
+    return system;
+}
+module.exports.generateStellarSystem = generateStellarSystem;
+
+function addCompanionStarToOrbit(companion, system, orbit) {
+    system.stars += 1;
+    placeInOrbit(system, companion, orbit, system.minOrbit);
+    return system;
+}
+module.exports.addCompanionStarToOrbit = addCompanionStarToOrbit;
+
+function addCompanionStar(companion, system) {
+    let orbit = companionOrbit(system.maxOrbits);
+    addCompanionStarToOrbit(companion, system, orbit);
+    return system;
+}
+module.exports.addCompanionStar = addCompanionStar;
+
+function newSystem(primary, maxOrbits, surface, minOrbit, habZone) {
+    let system = {
+        stars: 1,
+        primary: primary,
+        mainworldUPP: null,
+        surface: surface,
+        minOrbit: minOrbit,
+        maxOrbits: maxOrbits,
+        orbitsRemaining: maxOrbits,
+        habZone: habZone
+    };
+    system['orbits'] = createOrbits(system.maxOrbits);
+    return system;
+}
+module.exports.newSystem = newSystem;
+
+function finishSystem(system, upp, forceGG, forceNoGG, reducing) {
+    let primary = system.primary;
+    // Find the surface of the star, the minimum orbit, and the habitable zone
+    let surface = system.surface;
+    let minOrbit = system.minOrbit;
+    let habZone = system.habZone;
 
     // Captured planets
     // @@todo - write me... Do I care? Do captured planets add anything?
@@ -799,7 +868,7 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
             let ggOrbit = findEmptyOrbit(system);
             // @@todo - classes of gas giants?
             let ggType = LGG;
-            let ggSatDM = 0;            
+            let ggSatDM = 0;
             if (rollDie(2) == 2) {
                 ggType = SGG;
                 let ggSatDM = -4;
@@ -811,7 +880,7 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
             let inner = (ggOrbit < habZone);
             let outer = (ggOrbit > habZone);
             for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(ggType, inner, outer, upp);
+                let sat = generateSatelliteWorld(ggType, inner, outer, upp, reducing);
                 let orbit = gasGiantSatelliteOrbit(sat.size);
                 sats.push({
                     orbit: orbit,
@@ -832,14 +901,14 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
     // we also want the main world in the hab zone
     if (upp) {
         if (!system.orbits[habZone]) {
-            system.orbitsRemaining--;        
+            system.orbitsRemaining--;
             // Generate satellites
             let sats = [];
             let satCount = d6(-3);
             // generateSatelliteWorld(primary, inner, outer, mainworldUPP)
             for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(upp, false, false, upp);
-                let orbit = terrestrialSatelliteOrbit(sat.size);            
+                let sat = generateSatelliteWorld(upp, false, false, upp, reducing);
+                let orbit = terrestrialSatelliteOrbit(sat.size);
                 sats.push({
                     orbit: orbit,
                     world: sat
@@ -849,7 +918,7 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
                 return a.orbit - b.orbit;
             });
             placeInOrbit(system, world(upp, sats), habZone, minOrbit);
-        } else {        
+        } else {
             if (!system.orbits[habZone].satellites) {
                 system.orbits[habZone].satellites = [];
                 system.orbits[habZone].satellites.push({ 
@@ -862,7 +931,7 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
                     satOrbit++;
                 }
                 system.orbits[habZone].satellites[satOrbit].world = upp;
-            }        
+            }
         }
     }
 
@@ -885,13 +954,13 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
         if (!system.orbits[orbit]) {
             let inner = (orbit < habZone);
             let outer = (orbit > habZone);
-            let secondary = generateSecondaryWorld(primary, orbit, inner, outer, upp);
+            let secondary = generateSecondaryWorld(primary, orbit, inner, outer, upp, reducing);
             // Generate satellites
             let sats = [];
             let satCount = d6(-3);
             // generateSatelliteWorld(primary, inner, outer, mainworldUPP)
             for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(secondary, inner, outer, upp);
+                let sat = generateSatelliteWorld(secondary, inner, outer, upp, reducing);
                 let orbit = terrestrialSatelliteOrbit(sat.size);
                 sats.push({
                     orbit: orbit,
@@ -909,7 +978,7 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
                 ),
                 orbit, 
                 minOrbit);
-        }        
+        }
     }
 
     // @@ todo generate bodies in companion stars
@@ -921,6 +990,21 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf) {
     }
 
     return system;
+}
+module.exports.finishSystem = finishSystem;
+
+// Generates a system structure, given an existing UPP
+function generateSystem(upp, forceGG, forceNoGG, brownDwarf, reducing) {
+    let system = generateStellarSystem(upp, brownDwarf);
+    return finishSystem(system, upp, forceGG, forceNoGG, reducing);
+}
+module.exports.generateSystem = generateSystem;
+
+// Generates a system structure, given an existing UPP
+function generateSystemFromHybData(hyb) {
+
+    let system = generateStellarSystem(upp, brownDwarf);
+    return finishSystem(system, upp, forceGG, forceNoGG, reducing);
 }
 module.exports.generateSystem = generateSystem;
 
@@ -1213,7 +1297,7 @@ function printStellarClass(stellarClass, size) {
     if (size == 'D') {
         sep = '';
     }
-    return stellarClass + sep + size
+    return (size) ? stellarClass + sep + size : stellarClass;
 }
 module.exports.printStellarClass = printStellarClass;
 
@@ -1224,14 +1308,17 @@ function printHabitableZone(habitableData) {
     return '0 AU';
 }
 
-function printStar(orbit, name, star, con) {
+function printStar(orbit, name, star, habZoneOrbit, con) {
     let starOrbit = 'Primary';
     if (star.distance) {
         starOrbit = star.distance;
     }
-    let habZone = 'Habitable zone: ' + printHabitableZone(habitableData[star.size][star.stellarClass]);
-    let jumpLimit = 'Jump limit: ' + jumpLimitData[star.size][star.stellarClass] + ' AU';
-    let remarks = habZone + ' -- ' + jumpLimit;
+    let habZone = 'Habitable zone: ' + ((habZoneOrbit !== undefined) ? habZoneOrbit : printHabitableZone(habitableData[star.size][star.stellarClass]));
+    var remarks = habZone;
+    if (star.size) {
+        let jumpLimit = 'Jump limit: ' + jumpLimitData[star.size][star.stellarClass] + ' AU';
+        remarks = habZone + ' -- ' + jumpLimit;
+    }
     con.log(starOrbit + ',,' + name + ',' + printStellarClass(star.stellarClass, star.size) + ',,' + remarks);
 }
 
@@ -1255,20 +1342,23 @@ function printSatellite(orbit, name, world, con) {
 
 function printSystem(name, system, con) {
     con.log('Orbit (AU),Satellite,Name,UPP,Tags,Remarks');
-    printStar('Primary', name + ' Prime', system.primary, con);
+    printStar('Primary', name + ' Prime', system.primary, system.habZone, con);
     let companionCode = 'B';
+    var index = 0;
     for (var orbit = 0; orbit < system.orbits.length; orbit++) {
         let item = system.orbits[orbit];
-        let worldName = name + ' ' + (orbit + 1);
+        let worldName = name + ' ' + (index + 1);
         switch (item.type) {
             case STAR: {
                 let starName = name + ' ' + companionCode;
                 companionCode = 'C';
-                printStar(orbit, starName, item, con);
+                printStar(orbit, starName, item, null, con);
+                index++;
             }
             break;
             case PLANETOID_BELT: {
                 printPlanetoidBelt(orbit, worldName, item, con);
+                index++;
             }
             break;
             case GAS_GIANT: {
@@ -1278,6 +1368,7 @@ function printSystem(name, system, con) {
                     let satName = worldName + ' ' + satelliteNames[satOrbit];
                     printSatellite(satOrbit, satName, system.orbits[orbit].satellites[satOrbit], con);
                 }
+                index++;
             }
             break;
             case EMPTY:
@@ -1289,10 +1380,11 @@ function printSystem(name, system, con) {
                 for (var satOrbit = 0; satOrbit < system.orbits[orbit].satellites.length; satOrbit++) {
                     let satName = worldName + ' ' + satelliteNames[satOrbit];
                     printSatellite(satOrbit, satName, system.orbits[orbit].satellites[satOrbit], con);
-                } 
+                }
+                index++;
             }
             break;
-        }        
+        }
     }
 }
 module.exports.printSystem = printSystem;
