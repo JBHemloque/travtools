@@ -23,7 +23,7 @@ function showHelp() {
     console.log('-h          display this help');
     console.log('-g          force gas giants in this system');
     console.log('-n [name]   name the system');
-    console.log('-r              majority of breathable worlds should have reducing (A) atmospheres');
+    console.log('-r          majority of breathable worlds should have reducing (A) atmospheres');
     console.log('-u [UPP]    upp used for this system (will generate one if not supplied)');
     console.log('-v          verbose mode');
     process.exit(0);
