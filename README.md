@@ -51,3 +51,7 @@ Option -a, to generate allegiances and world names, uses data from allegiances.j
 Option -o uses a curve to adjust population. My Concordancy game is set in the Carina sector, which is a frontier sector, and this generates a sector where the population goes from normal (at the bottom of the map) to 0 (at the top).
 
 Option -e is mainly intended to be used with existing sectors, to create brown dwarfs while excluding other stars. You will then have to hand-merge this new data into your existing sector.
+
+## hybmap
+
+This is an experimental sector generator that uses Winchell Chung's HabHYB stellar data set. It's nowhere near ready for prime time, but I am experimenting with a Traveller universe using this. For more information, please contact me directly.
