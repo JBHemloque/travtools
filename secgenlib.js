@@ -104,6 +104,7 @@ const popOverride = [
         step: 0,
     }
 ];
+module.exports.popOverride = popOverride;
 
 const BROWN_DWARFS_PER_SIX_STARS = 1;
 
@@ -114,6 +115,8 @@ const DENSITY_STANDARD = 3;
 const DENSITY_DENSE = 4;
 
 const DENSITY = DENSITY_SCATTERED;
+
+const ROGUE = 'Rogue';
 
 const subsectors = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'];
 module.exports.subsectors = subsectors;
@@ -208,6 +211,11 @@ function hasBrownDwarf(density) {
             return denseHasBrownDwarf();
     }
     return standardHasBrownDwarf();
+}
+
+function hasRoguePlanet(density) {
+    // The density of rogue planets is the same as stars
+    return hasStar(density);
 }
 
 function getPBG(upp, system) {
@@ -361,6 +369,10 @@ module.exports.printSubSectorHeader = printSubSectorHeader;
 
 function printSystem(name, coord, upp, bases, tags, zone, system, pbg, allegiance, con) {
     con = getConsole(con);
+    let sclass = ROGUE;
+    if (system.stars > 0) {
+        sclass = sysgenlib.printStellarClass(system.primary.stellarClass, system.primary.size)
+    }
     // Hex, Name, UWP, Remarks, Base, Zone, PBG, Worlds, Allegiance, Stellar
     _printFileLine(
         coord,
@@ -376,7 +388,7 @@ function printSystem(name, coord, upp, bases, tags, zone, system, pbg, allegianc
         pbg, 
         sysgenlib.worldCount(system),
         allegiance,
-        sysgenlib.printStellarClass(system.primary.stellarClass, system.primary.size),
+        sclass,
         ' ',
         con);
 }
@@ -426,14 +438,14 @@ function getPopOverride(coord, popOverride) {
     return pop;
 }
 
-function generateStarSystem(name, coordStruct, popOverride, args) {
+function generateStarSystem(name, coordStruct, popOverride, args, brownDwarf) {
     let coord = coordStruct.coord;
     let pop = getPopOverride(coordStruct, popOverride);
     let upp = sysgenlib.generateMainWorld(pop);
-    if (args['deathWorld'] || args['brownDwarfs']) {
+    if (args['deathWorld'] || brownDwarf) {
         upp = null;
     }
-    let system = sysgenlib.generateSystem(upp, false, false, args['brownDwarfs'], args['reducing']);
+    let system = sysgenlib.generateSystem(upp, false, false, brownDwarf, args['reducing']);
     if (!upp) {
         upp = system.mainWorldUPP;
         if (args['populate']) {
@@ -452,7 +464,8 @@ function generateStarSystem(name, coordStruct, popOverride, args) {
         }
     }
     let allegiance = null;
-    let sysName = name + '-' + coord;
+    let sclass = sysgenlib.printStellarClass(system.primary.stellarClass, system.primary.size)
+    let sysName = systemName(name, coord, sclass, args);
 
     if (args['allegiances'] && (upp)) {
         // console.log('Calculating allegiance...');
@@ -475,22 +488,75 @@ function generateStarSystem(name, coordStruct, popOverride, args) {
 }
 module.exports.generateStarSystem = generateStarSystem;
 
+function systemName(name, coord, override, args) {
+    let sname = name;
+    if (args['starName']) {
+        sname = override;
+    }
+    return sname + '-' + coord; 
+}
+
+function generateRoguePlanet(name, coordStruct, popOverride, args) {
+    let coord = coordStruct.coord;
+    let system = sysgenlib.generateRogueWorld();
+    upp = system.mainWorldUPP;
+    // Todo: Populate rogues?
+    // if (args['populate']) {
+    //     let mainWorld = sysgenlib.getMainWorld(system);
+    //     if (mainWorld) {
+    //         upp = mainWorld.world;
+    //         let sport = sysgenlib.starport();
+    //         upp = sysgenlib.populateWorld(upp, pop, sport);
+    //         if (system.mainWorldUPP) {
+    //             system.mainWorldUPP = upp;
+    //         }
+    //         if (mainWorld) {
+    //             mainWorld.world = upp;
+    //         }
+    //     }
+    // }
+
+    let allegiance = null;
+    let sysName = systemName(name, coord, ROGUE, args);
+
+    if (args['allegiances'] && (upp)) {
+        // console.log('Calculating allegiance...');
+        allegiance = allegiances.determineAllegiance(upp);
+        // console.log('Allegiance: ' + allegiance);
+        if (allegiance) {
+            let genName = allegiances.getNameFromAllegiance(allegiance);
+            // console.log('Name: ' + genName);
+            if (genName) {
+                sysName = genName;
+            }
+        }
+    }
+    
+    if (args['writeSystems']) {
+        let fileConsole = new console.Console(fs.createWriteStream('./' + sysName + '.csv'));
+        sysgenlib.printSystem(sysName, system, fileConsole);
+    }
+    generateAndWriteSystemLine(sysName, coord, upp, system, allegiance);
+}
+module.exports.generateRoguePlanet = generateRoguePlanet;
+
 function generateSingleSubsector(name, subsector, popOverride, args) {
     let subName = name + ' ' + subsectors[subsector];
     printSubSectorHeader(subName, name);
     let coords = genCoords(subsector);
     for (var i = 0; i < coords.length; i++) {
+        // console.log('Checking ' + JSON.stringify(coords[i]) + '...');
         if (hasStar(DENSITY)) {
+            // console.log('Has star!');
             if (!args['excludeFusors']) {
-                generateStarSystem(name, coords[i], popOverride, false, args);
+                generateStarSystem(name, coords[i], popOverride, args, false);
             }
-        } else {
-            // If we are doing brown dwarfs, they will go here...
-            if (args['brownDwarfs']) {
-                if (hasBrownDwarf(DENSITY)) {
-                    generateStarSystem(name, coords[i], popOverride, true, args);
-                }
-            }
+        } else if ((args['brownDwarfs']) && (hasBrownDwarf(DENSITY))) {
+            // console.log('Has brown dwarf!');
+            generateStarSystem(name, coords[i], popOverride, args, true);
+        } else if ((args['rogue']) && (hasRoguePlanet(DENSITY))) {
+            // console.log('Has rogue world!');
+            generateRoguePlanet(name, coords[i], popOverride, args)
         }
     }
 }

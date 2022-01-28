@@ -2,7 +2,7 @@
 
 const args = require('minimist')(process.argv.slice(2), {
     string: ['upp', 'name'],
-    boolean: ['help', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld', 'reducing'],
+    boolean: ['help', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld', 'reducing', 'rogue'],
     alias: {
         d: 'deathWorld',
         h: 'help',
@@ -24,6 +24,7 @@ function showHelp() {
     console.log('-g          force gas giants in this system');
     console.log('-n [name]   name the system');
     console.log('-r          majority of breathable worlds should have reducing (A) atmospheres');
+    console.log('--rogue     generate rogue world');
     console.log('-u [UPP]    upp used for this system (will generate one if not supplied)');
     console.log('-v          verbose mode');
     process.exit(0);
@@ -71,5 +72,8 @@ if (args['deathWorld']) {
 
 // console.log('generated a upp: ' + JSON.stringify(upp));
 let system = sysgenlib.generateSystem(upp, args['forceGG'], args['forceNoGG'], false, args['reducing']);
+if (args['rogue']) {
+    system = sysgenlib.generateRogueWorld();
+}
 
 sysgenlib.printSystem(name, system, console);
