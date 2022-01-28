@@ -2,7 +2,7 @@
 
 const args = require('minimist')(process.argv.slice(2), {
     string: ['upp', 'name'],
-    boolean: ['help', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld', 'reducing'],
+    boolean: ['help', 'version', 'verbose', 'forceGG', 'forceNoGG', 'deathWorld', 'reducing', 'rogue'],
     alias: {
         d: 'deathWorld',
         h: 'help',
@@ -24,8 +24,10 @@ function showHelp() {
     console.log('-g          force gas giants in this system');
     console.log('-n [name]   name the system');
     console.log('-r          majority of breathable worlds should have reducing (A) atmospheres');
+    console.log('--rogue     generate rogue world');
     console.log('-u [UPP]    upp used for this system (will generate one if not supplied)');
     console.log('-v          verbose mode');
+    console.log('--version   display the version of travtools');
     process.exit(0);
 }
 
@@ -41,6 +43,17 @@ function parseUPP(upp) {
         parseInt(upp.charAt(5), 16),
         parseInt(upp.charAt(6), 16),
         parseInt(upp.charAt(8), 16));
+}
+
+var constants = require('./constants.js');
+
+function showVersion() {
+    console.log('travtools version ' + constants.version);
+    process.exit(0);
+}
+
+if (args['version']) {
+    showVersion();
 }
 
 if (args['help']) {
@@ -71,5 +84,8 @@ if (args['deathWorld']) {
 
 // console.log('generated a upp: ' + JSON.stringify(upp));
 let system = sysgenlib.generateSystem(upp, args['forceGG'], args['forceNoGG'], false, args['reducing']);
+if (args['rogue']) {
+    system = sysgenlib.generateRogueWorld();
+}
 
 sysgenlib.printSystem(name, system, console);

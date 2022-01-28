@@ -283,7 +283,7 @@ function generateMainWorldTags(upp) {
     return tags;
 }
 
-function populateSecondaryWorld(mainworldUPP, upp, inner, outer) {
+function populateSecondaryWorld(mainWorldUPP, upp, inner, outer) {
     let popDM = -4;
     if (inner | outer) {
         popDM -= 5;
@@ -305,24 +305,24 @@ function populateSecondaryWorld(mainworldUPP, upp, inner, outer) {
     let gov = 0;
     let law = 0;
     let techLevel = 0;
-    if (mainworldUPP) {
+    if (mainWorldUPP) {
         pop = d6d6(popDM);
-        if (pop >= mainworldUPP.population) {
-            pop = mainworldUPP.population - 1;
+        if (pop >= mainWorldUPP.population) {
+            pop = mainWorldUPP.population - 1;
         }
-        if (mainworldUPP.population == 0) {
+        if (mainWorldUPP.population == 0) {
             pop = 0;
         }
         let govDM = 0;
-        if (mainworldUPP.government >= 7) {
+        if (mainWorldUPP.government >= 7) {
             govDM = 2;
         }
         gov = subordinateGovernmentData[d6(govDM)];
-        if (mainworldUPP.government == 6) {
+        if (mainWorldUPP.government == 6) {
             gov = 6;
         }
-        law = d6(mainworldUPP.lawLevel - 3, 15);
-        techLevel = mainworldUPP.techLevel - 1;
+        law = d6(mainWorldUPP.lawLevel - 3, 15);
+        techLevel = mainWorldUPP.techLevel - 1;
         if (techLevel < 0) {
             techLevel = 0;
         }
@@ -484,7 +484,7 @@ function generateMainWorld(pop, reducing) {
 }
 module.exports.generateMainWorld = generateMainWorld;
 
-function generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP, reducing) {
+function generateSecondaryWorld(star, orbit, inner, outer, mainWorldUPP, reducing) {
     let sizDM = -2;
     switch (orbit) {
         case 0:
@@ -510,11 +510,11 @@ function generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP, reducin
         atm = applyReducing(atm);
     }
     let upp = uppStruct('Y', siz, atm, hyd, 0, 0, 0, 0, []);
-    upp = populateSecondaryWorld(mainworldUPP, upp, inner, outer);
+    upp = populateSecondaryWorld(mainWorldUPP, upp, inner, outer);
     return upp;
 }
 
-function generateSatelliteWorld(primary, inner, outer, mainworldUPP, reducing) {
+function generateSatelliteWorld(primary, inner, outer, mainWorldUPP, reducing) {
     let siz = 0;
     // Size is allowed to be negative...
     if (primary == 'Large Gas Giant') {
@@ -539,7 +539,7 @@ function generateSatelliteWorld(primary, inner, outer, mainworldUPP, reducing) {
         atm = applyReducing(atm);
     }
     let upp = uppStruct('Y', siz, atm, hyd, 0, 0, 0, 0, []);
-    upp = populateSecondaryWorld(mainworldUPP, upp, inner, outer);
+    upp = populateSecondaryWorld(mainWorldUPP, upp, inner, outer);
     return upp;
 }
 
@@ -790,9 +790,9 @@ function generateStellarSystem(upp, brownDwarf) {
         addCompanionStar(companion, system);
         if (stars == 3) {
             let val = companionOrbit(maxOrbits, 4);
-            if (val == orbit) {
-                val = -1;
-            }
+            // if (val == orbit) {
+            //     val = -1;
+            // }
             companion = generateCompanionStar(primaryClassRoll+4, primarySizeRoll+4, brownDwarf);
             addCompanionStarToOrbit(companion, system, val);
         }
@@ -819,7 +819,6 @@ function newSystem(primary, maxOrbits, surface, minOrbit, habZone) {
     let system = {
         stars: 1,
         primary: primary,
-        mainworldUPP: null,
         surface: surface,
         minOrbit: minOrbit,
         maxOrbits: maxOrbits,
@@ -830,6 +829,53 @@ function newSystem(primary, maxOrbits, surface, minOrbit, habZone) {
     return system;
 }
 module.exports.newSystem = newSystem;
+
+function generateGasGiant(ggOrbit, habZone, upp, reducing) {
+    // @@todo - classes of gas giants?
+    let ggType = LGG;
+    let ggSatDM = 0;
+    if (rollDie(2) == 2) {
+        ggType = SGG;
+        let ggSatDM = -4;
+    }
+    let satCount = d6d6(ggSatDM);
+    // Generate satellites
+    let sats = [];
+    // generateSatelliteWorld(primary, inner, outer, mainWorldUPP)
+    let inner = (ggOrbit < habZone);
+    let outer = (ggOrbit > habZone);
+    for (var i = 0; i < satCount; i++) {
+        let sat = generateSatelliteWorld(ggType, inner, outer, upp, reducing);
+        let orbit = gasGiantSatelliteOrbit(sat.size);
+        sats.push({
+            orbit: orbit,
+            world: sat
+        })
+    }
+    sats.sort(function(a, b) {
+        return a.orbit - b.orbit;
+    });
+    return gasGiant(ggType, sats)
+}
+
+function generateSatellites(inner, outer, upp, reducing) {
+    // Generate satellites
+    let sats = [];
+    let satCount = d6(-3);
+    // generateSatelliteWorld(primary, inner, outer, mainWorldUPP)
+    for (var i = 0; i < satCount; i++) {
+        let sat = generateSatelliteWorld(upp, inner, outer, upp, reducing);
+        let orbit = terrestrialSatelliteOrbit(sat.size);
+        sats.push({
+            orbit: orbit,
+            world: sat
+        })
+    }
+    sats.sort(function(a, b) {
+        return a.orbit - b.orbit;
+    });
+    return sats;
+}
 
 function finishSystem(system, upp, forceGG, forceNoGG, reducing) {
     let primary = system.primary;
@@ -866,31 +912,7 @@ function finishSystem(system, upp, forceGG, forceNoGG, reducing) {
         // But we now know that hot jupiters are a thing, so...
         while(count > 0) {
             let ggOrbit = findEmptyOrbit(system);
-            // @@todo - classes of gas giants?
-            let ggType = LGG;
-            let ggSatDM = 0;
-            if (rollDie(2) == 2) {
-                ggType = SGG;
-                let ggSatDM = -4;
-            }
-            let satCount = d6d6(ggSatDM);
-            // Generate satellites
-            let sats = [];
-            // generateSatelliteWorld(primary, inner, outer, mainworldUPP)
-            let inner = (ggOrbit < habZone);
-            let outer = (ggOrbit > habZone);
-            for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(ggType, inner, outer, upp, reducing);
-                let orbit = gasGiantSatelliteOrbit(sat.size);
-                sats.push({
-                    orbit: orbit,
-                    world: sat
-                })
-            }
-            sats.sort(function(a, b) {
-                return a.orbit - b.orbit;
-            });
-            placeInOrbit(system, gasGiant(ggType, sats), ggOrbit, minOrbit);
+            placeInOrbit(system, generateGasGiant(ggOrbit, habZone, upp, reducing), ggOrbit, minOrbit);
             count--;
         }
     }
@@ -903,20 +925,7 @@ function finishSystem(system, upp, forceGG, forceNoGG, reducing) {
         if (!system.orbits[habZone]) {
             system.orbitsRemaining--;
             // Generate satellites
-            let sats = [];
-            let satCount = d6(-3);
-            // generateSatelliteWorld(primary, inner, outer, mainworldUPP)
-            for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(upp, false, false, upp, reducing);
-                let orbit = terrestrialSatelliteOrbit(sat.size);
-                sats.push({
-                    orbit: orbit,
-                    world: sat
-                })
-            }
-            sats.sort(function(a, b) {
-                return a.orbit - b.orbit;
-            });
+            let sats = generateSatellites(false, false, upp, reducing);
             placeInOrbit(system, world(upp, sats), habZone, minOrbit);
         } else {
             if (!system.orbits[habZone].satellites) {
@@ -949,27 +958,14 @@ function finishSystem(system, upp, forceGG, forceNoGG, reducing) {
     }
 
     // Generate worlds for the other orbits
-    // generateSecondaryWorld(star, orbit, inner, outer, mainworldUPP)
+    // generateSecondaryWorld(star, orbit, inner, outer, mainWorldUPP)
     for (let orbit = 0; orbit < system.orbits.length; orbit++) {
         if (!system.orbits[orbit]) {
             let inner = (orbit < habZone);
             let outer = (orbit > habZone);
             let secondary = generateSecondaryWorld(primary, orbit, inner, outer, upp, reducing);
             // Generate satellites
-            let sats = [];
-            let satCount = d6(-3);
-            // generateSatelliteWorld(primary, inner, outer, mainworldUPP)
-            for (var i = 0; i < satCount; i++) {
-                let sat = generateSatelliteWorld(secondary, inner, outer, upp, reducing);
-                let orbit = terrestrialSatelliteOrbit(sat.size);
-                sats.push({
-                    orbit: orbit,
-                    world: sat
-                })
-            }
-            sats.sort(function(a, b) {
-                return a.orbit - b.orbit;
-            });
+            let sats = generateSatellites(inner, outer, secondary, reducing);
             placeInOrbit(
                 system, 
                 world(
@@ -999,6 +995,42 @@ function generateSystem(upp, forceGG, forceNoGG, brownDwarf, reducing) {
     return finishSystem(system, upp, forceGG, forceNoGG, reducing);
 }
 module.exports.generateSystem = generateSystem;
+
+// Generates a rogue world
+function generateRogueWorld() {
+    // Call it a 50/50 chance of generating a gas giant or rocky planet
+    if (d6(-3) > 0) {
+        // Rocky world
+        let sport = 'X';
+        let siz = d6d6(-2);
+        let atm = generateAtmosphere(siz, false, true);
+        // All rogue planets are reducing
+        atm = applyReducing(atm);
+        let hyd = generateHydrographics(siz, atm, false, true);
+        let upp = uppStruct(sport, siz, atm, hyd, 0, 0, 0, 0, [], MAIN_WORLD);
+        let sats = generateSatellites(false, true, upp, true);
+        return {
+            stars: 0,
+            orbits: [
+                world(upp, sats)
+            ],
+            mainWorldUPP: upp
+        }
+    } else {
+        // Gas giant
+        let gg = generateGasGiant(1, 0, null, true);
+        let upp = gg.satellites[gg.satellites.length-1].world;
+        upp.starport = 'X';
+        return {
+            stars: 0,
+            orbits: [
+                gg
+            ],
+            mainWorldUPP:upp
+        }
+    }
+}
+module.exports.generateRogueWorld = generateRogueWorld;
 
 // Generates a system structure, given an existing UPP
 function generateSystemFromHybData(hyb) {
@@ -1057,7 +1089,7 @@ function findMainWorld(system, habZone, minOrbit) {
                         }
                     }
                 }
-            }            
+            }
         }
     }
 
@@ -1342,12 +1374,18 @@ function printSatellite(orbit, name, world, con) {
 
 function printSystem(name, system, con) {
     con.log('Orbit (AU),Satellite,Name,UPP,Tags,Remarks');
-    printStar('Primary', name + ' Prime', system.primary, system.habZone, con);
+    if (system.stars > 0) {
+        printStar('Primary', name + ' Prime', system.primary, system.habZone, con);
+    }
     let companionCode = 'B';
     var index = 0;
     for (var orbit = 0; orbit < system.orbits.length; orbit++) {
         let item = system.orbits[orbit];
         let worldName = name + ' ' + (index + 1);
+        // Rogue planets just take the system name
+        if (system.stars == 0) {
+            worldName = name;
+        }
         switch (item.type) {
             case STAR: {
                 let starName = name + ' ' + companionCode;
