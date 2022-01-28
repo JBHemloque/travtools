@@ -2,7 +2,7 @@
 
 const args = require('minimist')(process.argv.slice(2), {
     string: ['name', 'subsector'],
-    boolean: ['help', 'verbose', 'brownDwarfs', 'deathWorld', 'excludeFusors', 'starName', 'writeSystems', 'populate', 'overridePopulation', 'allegiances', 'reducing', 'rogue'],
+    boolean: ['help', 'version', 'verbose', 'brownDwarfs', 'deathWorld', 'excludeFusors', 'starName', 'writeSystems', 'populate', 'overridePopulation', 'allegiances', 'reducing', 'rogue'],
     alias: {
         a: 'allegiances',
         b: 'brownDwarfs',
@@ -39,7 +39,19 @@ function showHelp() {
     console.log('--starName      name systems after their primary star type (debugging)');
     console.log('--subsector [#] generate a single subsector (1-15)')
     console.log('-v              verbose mode');
+    console.log('--version   display the version of travtools');
     process.exit(0);
+}
+
+var constants = require('./constants.js');
+
+function showVersion() {
+    console.log('travtools version ' + constants.version);
+    process.exit(0);
+}
+
+if (args['version']) {
+    showVersion();
 }
 
 if (args['help']) {

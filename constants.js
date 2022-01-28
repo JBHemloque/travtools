@@ -1,5 +1,7 @@
 'uses strict';
 
+module.exports.version = '0.5.0';
+
 function iaSurfaceData() {
     let data = {};
     data['B0'] = -1;
